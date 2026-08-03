@@ -69,16 +69,20 @@ Puis sur GitHub : **Settings → Pages → Source : Deploy from a branch →
 
 ```bash
 sudo docker exec -it claude-code sh
-cd /volume1/siteweb/munich2026/site && git push
+cd /volume1/siteweb/munich2026/private && python3 publish.py "message de commit"
 ```
+
+Le script incrémente le numéro de version des URLs (`app.js?v=N`), commit et
+pousse. **Ne pas pousser à la main** : sans changement de version, iOS continue
+de servir l'ancien code pendant des jours, même après avoir quitté et relancé la
+web app depuis l'écran d'accueil.
 
 Les identifiants sont enregistrés dans `../private/.git-credentials` (jeton
 « fine-grained » limité à ce dépôt, permission *Contents: read and write*), donc
 plus rien n'est demandé. Pour le remplacer à son expiration, réécrire ce fichier
 au format `https://<compte>:<jeton>@github.com` et le laisser en `chmod 600`.
 
-Compter environ une minute entre le push et la mise en ligne, plus le cache du
-navigateur : GitHub Pages sert avec `cache-control: max-age=600`.
+Compter environ une minute entre le push et la mise en ligne.
 
 ## Mettre le programme à jour
 
