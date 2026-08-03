@@ -167,6 +167,17 @@ function renderItem(item) {
   card.append(head);
 
   if (item.desc) card.append(el("p", "desc", item.desc));
+
+  // Adresse mise en évidence : elle est faite pour être montrée telle quelle à
+  // un chauffeur de taxi ou à un passant, donc écrite en grand, en allemand.
+  if (item.address) {
+    const box = el("div", "address");
+    box.append(el("span", "address-label", item.address.label || "Adresse"));
+    if (item.address.name) box.append(el("strong", null, item.address.name));
+    (item.address.lines || []).forEach((line) => box.append(el("span", null, line)));
+    card.append(box);
+  }
+
   if (item.warn) card.append(el("div", "warn", "⚠️ " + item.warn));
 
   (item.notes || []).forEach((note) => {
