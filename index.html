@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b3b6f">
+<title>Munich 2026</title>
+<link rel="stylesheet" href="assets/styles.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏰</text></svg>">
+</head>
+<body>
+
+<div id="screen-login" class="screen">
+  <form id="login-form" class="login-card" autocomplete="on">
+    <div class="login-crest">🏰</div>
+    <h1>Munich 2026</h1>
+    <p class="login-sub">26 août → 4 septembre</p>
+    <label for="email">Adresse e-mail</label>
+    <input id="email" type="email" autocomplete="username" required>
+    <label for="password">Mot de passe</label>
+    <input id="password" type="password" autocomplete="current-password" required>
+    <button id="login-btn" type="submit">Se connecter</button>
+    <p id="login-error" class="login-error" hidden></p>
+  </form>
+</div>
+
+<div id="screen-loading" class="screen" hidden>
+  <div class="spinner" aria-label="Chargement"></div>
+</div>
+
+<div id="screen-app" class="screen app" hidden>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div>
+        <h1 id="trip-title">Munich 2026</h1>
+        <p id="trip-sub"></p>
+      </div>
+      <button id="logout-btn" class="ghost-btn" type="button">Quitter</button>
+    </div>
+    <nav id="daybar" class="daybar" aria-label="Jours du séjour"></nav>
+  </header>
+
+  <main id="main">
+    <section id="day-panel"></section>
+  </main>
+
+  <footer class="foot">
+    <p id="foot-note"></p>
+  </footer>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<script type="module" src="assets/app.js"></script>
+</body>
+</html>

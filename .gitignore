@@ -1,0 +1,7 @@
+# Rien de sensible ne doit entrer dans ce dépôt : le programme, les notes et les
+# billets vivent dans Firestore, pas ici.
+.env
+*.pdf
+trip.json
+private/
+.DS_Store
