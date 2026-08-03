@@ -140,6 +140,15 @@ function renderDay() {
     const box = el("div", "notice");
     box.append(el("span", "notice-title", notice.title));
     box.append(el("p", null, notice.body));
+    if (notice.link) {
+      const row = el("div", "actions");
+      const link = el("a", "btn", notice.link.label);
+      link.href = notice.link.url;
+      link.target = "_blank";
+      link.rel = "noopener";
+      row.append(link);
+      box.append(row);
+    }
     panel.append(box);
   });
 
