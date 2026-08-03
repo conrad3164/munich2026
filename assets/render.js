@@ -30,6 +30,7 @@ const MAPS_MODES = { transit: "transit", car: "driving", walk: "walking", train:
 let trip = null;
 let loadTicket = async () => { throw new Error("billets indisponibles"); };
 let selectedDay = 0;
+let selectedType = "";
 
 export function toast(message, ms = 3600) {
   const el = $("toast");
@@ -54,7 +55,45 @@ export function mountTrip(data, ticketLoader) {
 
   renderDocuments();
   renderDaybar();
+  renderTypebar();
   renderDay();
+}
+
+/** Filtre transversal : voir toutes les visites d'un même type sur l'ensemble du
+ *  séjour, pour juger de l'équilibre entre nature, musées et châteaux. */
+const FILTERABLE = ["nature", "museum", "castle", "city"];
+
+function renderTypebar() {
+  const bar = $("typebar");
+  if (!bar) return;
+  bar.replaceChildren();
+
+  const counts = new Map();
+  trip.days.forEach((day) => day.items.forEach((item) => {
+    if (FILTERABLE.includes(item.type)) counts.set(item.type, (counts.get(item.type) || 0) + 1);
+  }));
+
+  const chips = [["", "Par jour", trip.days.length]];
+  FILTERABLE.forEach((type) => {
+    if (counts.has(type)) chips.push([type, TYPE_LABELS[type], counts.get(type)]);
+  });
+
+  chips.forEach(([type, label, count]) => {
+    const chip = el("button", "typechip");
+    chip.type = "button";
+    chip.setAttribute("aria-selected", String(type === selectedType));
+    chip.append(el("span", null, label));
+    chip.append(el("span", "typechip-count", String(count)));
+    chip.addEventListener("click", () => {
+      selectedType = type;
+      renderTypebar();
+      renderDay();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+    bar.append(chip);
+  });
+
+  $("daybar").hidden = Boolean(selectedType);
 }
 
 /** Documents utiles tout le séjour (plan du réseau…), accessibles depuis
@@ -121,9 +160,15 @@ function renderDaybar() {
 }
 
 function renderDay() {
-  const day = trip.days[selectedDay];
   const panel = $("day-panel");
   panel.replaceChildren();
+
+  if (selectedType) {
+    renderFiltered(panel);
+    return;
+  }
+
+  const day = trip.days[selectedDay];
 
   const head = el("div", "day-head");
   head.append(el("h2", null, day.label));
@@ -155,6 +200,25 @@ function renderDay() {
   day.items.forEach((item) => panel.append(renderItem(item)));
 }
 
+/** Toutes les visites d'un type, sur l'ensemble du séjour, regroupées par jour. */
+function renderFiltered(panel) {
+  const head = el("div", "day-head");
+  head.append(el("h2", null, TYPE_LABELS[selectedType]));
+  const matching = trip.days
+    .map((day) => ({ day, items: day.items.filter((item) => item.type === selectedType) }))
+    .filter((group) => group.items.length);
+  const total = matching.reduce((sum, group) => sum + group.items.length, 0);
+  head.append(el("p", "day-title",
+    total + (total > 1 ? " visites réparties sur " : " visite sur ") +
+    matching.length + (matching.length > 1 ? " journées" : " journée")));
+  panel.append(head);
+
+  matching.forEach((group) => {
+    panel.append(el("h3", "filter-day", group.day.label));
+    group.items.forEach((item) => panel.append(renderItem(item)));
+  });
+}
+
 function renderItem(item) {
   const card = el("article", "card");
 
@@ -177,6 +241,8 @@ function renderItem(item) {
     (item.address.lines || []).forEach((line) => box.append(el("span", null, line)));
     card.append(box);
   }
+
+  if (item.info) card.append(renderInfo(item.info));
 
   if (item.warn) card.append(el("div", "warn", "⚠️ " + item.warn));
 
@@ -213,6 +279,33 @@ function renderItem(item) {
   if (actions.children.length) card.append(actions);
 
   return card;
+}
+
+/** Horaires, tarifs et durée d'un lieu. Les chiffres viennent des sites
+ *  officiels et sont datés de la préparation du voyage : à revérifier sur place
+ *  pour un tarif au centime près. */
+function renderInfo(info) {
+  const box = el("div", "info");
+  const rows = [
+    ["🕐", info.hours],
+    ["💶", info.price],
+    ["⏱️", info.duration]
+  ];
+  rows.forEach(([icon, text]) => {
+    if (!text) return;
+    const row = el("div", "info-row");
+    row.append(el("span", "info-icon", icon));
+    row.append(el("span", null, text));
+    box.append(row);
+  });
+  if (info.link) {
+    const link = el("a", "info-link", info.link.label || "Site officiel");
+    link.href = info.link.url;
+    link.target = "_blank";
+    link.rel = "noopener";
+    box.append(link);
+  }
+  return box;
 }
 
 function renderTravel(travel) {

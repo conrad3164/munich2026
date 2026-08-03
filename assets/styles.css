@@ -189,8 +189,54 @@ h1, h2, h3 { margin: 0; font-weight: 650; letter-spacing: -.01em; }
 .daychip .chip-note { color: var(--or); font-weight: 700; }
 .daychip[aria-selected="true"] .chip-note { color: #a5761c; }
 
+.typebar {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 0 16px 12px;
+  max-width: 820px;
+  margin: 0 auto;
+  scrollbar-width: none;
+}
+.typebar::-webkit-scrollbar { display: none; }
+.typechip {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(255,255,255,.25);
+  border-radius: 99px;
+  padding: 5px 12px;
+  background: transparent;
+  color: rgba(255,255,255,.85);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.typechip[aria-selected="true"] { background: #fff; border-color: #fff; color: var(--bleu); }
+.typechip-count {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 99px;
+  background: rgba(255,255,255,.2);
+}
+.typechip[aria-selected="true"] .typechip-count { background: var(--bleu-pale); color: var(--bleu); }
+
 /* ---------- contenu ---------- */
 main { max-width: 820px; margin: 0 auto; padding: 18px 16px 40px; }
+
+.filter-day {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--gris);
+  margin: 22px 0 10px;
+}
+.filter-day:first-of-type { margin-top: 8px; }
 
 .day-head {
   margin-bottom: 18px;
@@ -323,6 +369,28 @@ main { max-width: 820px; margin: 0 auto; padding: 18px 16px 40px; }
   color: #7d1c16;
 }
 
+/* horaires, tarifs, durée */
+.info {
+  margin-top: 12px;
+  padding: 11px 13px;
+  background: #f2f6fa;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 14px;
+  color: #333f50;
+}
+.info-row { display: flex; gap: 9px; align-items: baseline; }
+.info-icon { flex: none; font-size: 13px; }
+.info-link {
+  align-self: flex-start;
+  margin-top: 3px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--bleu-clair);
+}
+
 .travel {
   margin-top: 12px;
   padding: 12px 13px;
@@ -416,4 +484,64 @@ main { max-width: 820px; margin: 0 auto; padding: 18px 16px 40px; }
 @media (min-width: 640px) {
   .topbar h1 { font-size: 22px; }
   .card { padding: 18px 20px; }
+}
+
+/* ---------- mode sombre ---------- */
+/* Suit le réglage du téléphone. Au-delà des variables, plusieurs couleurs sont
+   écrites en dur dans les blocs ci-dessus : il faut les reprendre une à une,
+   sinon on obtient du texte sombre sur fond sombre. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bleu: #17304f;
+    --bleu-clair: #7ab5ea;
+    --bleu-pale: #1a2a3f;
+    --or: #d8a441;
+    --encre: #e6ecf4;
+    --gris: #93a2b6;
+    --gris-clair: #2b3543;
+    --fond: #0d141d;
+    --blanc: #171f2a;
+    --alerte: #ff9c92;
+    --alerte-fond: #3b201e;
+    --note-fond: #322818;
+    --ombre: 0 1px 2px rgba(0, 0, 0, .35), 0 6px 20px rgba(0, 0, 0, .4);
+  }
+
+  /* Le bleu foncé de la charte devient illisible sur fond sombre : partout où il
+     servait de couleur de texte, on passe au bleu clair. */
+  .day-head h2,
+  .notice-title,
+  .login-card h1,
+  .btn,
+  .info-link { color: var(--bleu-clair); }
+
+  .desc, .notice p, .travel p, .info { color: #c3cddb; }
+  .notice { background: #1a2a3f; }
+  .flag { background: #1a2a3f; color: #a9c9ea; }
+  .flag.car { background: #33280f; color: #e0b45c; }
+  .travel { background: #131c27; }
+  .info { background: #131c27; }
+  .note { color: #ddd0b0; }
+  .note-label, .address-label { color: var(--or); }
+  .address { color: #f0e2c4; }
+  .warn, .travel .caution { color: #ffb3aa; }
+
+  .btn { background: #1d2734; border-color: #2f3b4b; }
+  .btn.primary { background: #1e4f80; border-color: #1e4f80; color: #fff; }
+  .btn.ticket { background: #8a6414; border-color: #8a6414; color: #fff; }
+
+  .badge { background: #263141; color: #a9b6c8; }
+  .badge.nature { background: #16301f; color: #86d3a2; }
+  .badge.museum { background: #241c3a; color: #b6a2e6; }
+  .badge.castle { background: #33280f; color: #e0b45c; }
+  .badge.city { background: #14283f; color: #8fc0ec; }
+  .badge.food { background: #341b17; color: #e8a08f; }
+  .badge.transport { background: #232c38; color: #a4b1c2; }
+  .badge.hotel { background: #123034; color: #8ecfd8; }
+  .badge.memorial { background: #262a31; color: #adb5c0; }
+
+  .login-card input { background: #101822; color: var(--encre); }
+  #screen-login, #screen-loading {
+    background: linear-gradient(160deg, #0b1a2c 0%, #12294a 55%, #17395f 100%);
+  }
 }
