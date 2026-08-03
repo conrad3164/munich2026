@@ -7,7 +7,7 @@
 <title>Munich 2026</title>
 <!-- Le ?v= est incrémenté à chaque publication par private/publish.py : sans lui,
      iOS continue de servir l'ancienne version pendant des jours. -->
-<link rel="stylesheet" href="assets/styles.css?v=5">
+<link rel="stylesheet" href="assets/styles.css?v=6">
 <!-- Lance le téléchargement des SDK Firebase sans attendre l'analyse d'app.js.
      Ignoré sans dommage par les navigateurs qui ne connaissent pas. -->
 <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js">
@@ -70,7 +70,7 @@
 <!-- Journal de diagnostic, visible seulement si l'adresse contient ?debug=1 -->
 <pre id="debug" hidden></pre>
 
-<script type="module" src="assets/app.js?v=5"></script>
+<script type="module" src="assets/app.js?v=6"></script>
 
 <!-- Teste instantanément le support des modules ES, sans dépendre du réseau :
      un navigateur trop ancien ignore purement et simplement ce bloc. -->
@@ -112,6 +112,25 @@
     var r = e.reason;
     showLoginError("Erreur : " + (r && r.message ? r.message : String(r)));
   });
+
+  // Service worker : rend le site consultable hors ligne et, surtout, reprend la
+  // main sur le cache de l'icône d'écran d'accueil iOS, qui sert sinon une
+  // version figée pendant des jours. Quand une nouvelle version prend la main,
+  // la page se recharge une seule fois.
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("sw.js")
+        .then(function (registration) { registration.update(); })
+        .catch(function (e) { console.warn("service worker non enregistré :", e); });
+
+      var reloading = false;
+      navigator.serviceWorker.addEventListener("controllerchange", function () {
+        if (reloading) return;
+        reloading = true;
+        window.location.reload();
+      });
+    });
+  }
 </script>
 </body>
 </html>

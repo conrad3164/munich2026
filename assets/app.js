@@ -17,7 +17,7 @@ import {
   orderBy
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 import { firebaseConfig } from "../firebase-config.js";
-import { mountTrip, toast } from "./render.js?v=5";
+import { mountTrip, toast } from "./render.js?v=6";
 
 // Les SDK sont chargés : on rend le formulaire utilisable et on désamorce le
 // garde-fou d'index.html.
