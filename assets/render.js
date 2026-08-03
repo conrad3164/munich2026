@@ -52,8 +52,24 @@ export function mountTrip(data, ticketLoader) {
   const upcoming = trip.days.findIndex((d) => d.date >= today);
   selectedDay = upcoming >= 0 ? upcoming : 0;
 
+  renderDocuments();
   renderDaybar();
   renderDay();
+}
+
+/** Documents utiles tout le séjour (plan du réseau…), accessibles depuis
+ *  l'en-tête quelle que soit la journée affichée. */
+function renderDocuments() {
+  const box = $("doc-buttons");
+  if (!box) return;
+  box.replaceChildren();
+  (trip.documents || []).forEach((document_) => {
+    const btn = el("button", "ghost-btn", document_.button || document_.label);
+    btn.type = "button";
+    btn.title = document_.label;
+    btn.addEventListener("click", () => openTicket(document_.id, btn));
+    box.append(btn);
+  });
 }
 
 function mapsUrl(travel) {
