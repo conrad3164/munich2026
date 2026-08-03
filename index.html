@@ -11,7 +11,10 @@
 <body>
 
 <div id="screen-login" class="screen">
-  <form id="login-form" class="login-card" autocomplete="on">
+  <!-- onsubmit="return false" : filet de sécurité. Si le script ne se charge pas,
+       le navigateur ne doit surtout pas soumettre le formulaire en GET, ce qui
+       mettrait le mot de passe dans l'URL et dans l'historique. -->
+  <form id="login-form" class="login-card" autocomplete="on" onsubmit="return false">
     <div class="login-crest">🏰</div>
     <h1>Munich 2026</h1>
     <p class="login-sub">26 août → 4 septembre</p>
@@ -52,5 +55,35 @@
 <div id="toast" class="toast" hidden></div>
 
 <script type="module" src="assets/app.js"></script>
+<script>
+  // Sans ce garde-fou, un module qui ne se charge pas (réseau coupé, bloqueur de
+  // publicité qui filtre gstatic.com) laisse une page muette : le bouton ne
+  // réagit pas et rien n'explique pourquoi.
+  function showLoginError(text) {
+    var box = document.getElementById("login-error");
+    if (!box) return;
+    box.textContent = text;
+    box.hidden = false;
+  }
+
+  setTimeout(function () {
+    if (document.documentElement.dataset.appReady) return;
+    showLoginError(
+      "Le script du site n'a pas pu se charger. Causes habituelles : pas de réseau, " +
+      "ou un bloqueur de publicité qui filtre gstatic.com. Voir la page diag.html."
+    );
+  }, 8000);
+
+  // Une erreur qui n'apparaît que dans la console est invisible sur mobile :
+  // on la remonte aussi à l'écran.
+  window.addEventListener("error", function (e) {
+    showLoginError("Erreur : " + (e.message || "chargement impossible") +
+      (e.filename ? " (" + e.filename + ")" : ""));
+  });
+  window.addEventListener("unhandledrejection", function (e) {
+    var r = e.reason;
+    showLoginError("Erreur : " + (r && r.message ? r.message : String(r)));
+  });
+</script>
 </body>
 </html>

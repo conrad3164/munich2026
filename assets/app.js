@@ -19,6 +19,9 @@ import {
 import { firebaseConfig } from "../firebase-config.js";
 import { mountTrip, toast } from "./render.js";
 
+// Signale que le module a bien été chargé (voir le garde-fou dans index.html).
+document.documentElement.dataset.appReady = "1";
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);

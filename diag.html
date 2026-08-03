@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Diagnostic — Munich 2026</title>
+<style>
+  body { font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+         margin: 0; padding: 20px; background: #f6f8fb; color: #1a2230; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.sub { margin: 0 0 20px; color: #5d6b7d; font-size: 14px; }
+  .line { background: #fff; border-radius: 10px; padding: 12px 14px; margin-bottom: 8px;
+          box-shadow: 0 1px 3px rgba(16,32,55,.1); }
+  .line b { display: block; font-size: 13px; text-transform: uppercase;
+            letter-spacing: .05em; color: #5d6b7d; margin-bottom: 3px; }
+  .ok { border-left: 4px solid #17693c; }
+  .ko { border-left: 4px solid #b3261e; }
+  .wait { border-left: 4px solid #c8922a; }
+  code { font-family: ui-monospace, Menlo, monospace; font-size: 13px; word-break: break-all; }
+  fieldset { background: #fff; border: 0; border-radius: 10px; padding: 16px; margin: 20px 0;
+             box-shadow: 0 1px 3px rgba(16,32,55,.1); }
+  legend { font-weight: 600; padding: 0 6px; }
+  input { width: 100%; padding: 11px; margin-bottom: 10px; font-size: 16px;
+          border: 1px solid #e4e9ef; border-radius: 8px; box-sizing: border-box; }
+  button { padding: 12px 18px; font-size: 15px; font-weight: 600; border: 0;
+           border-radius: 8px; background: #0b3b6f; color: #fff; cursor: pointer; }
+</style>
+</head>
+<body>
+<h1>Diagnostic — Munich 2026</h1>
+<p class="sub">Cette page teste chaque brique séparément et affiche le résultat ici même, sans console.</p>
+
+<div id="results"></div>
+
+<fieldset>
+  <legend>Test de connexion</legend>
+  <input id="email" type="email" placeholder="Adresse e-mail" autocomplete="username">
+  <input id="password" type="password" placeholder="Mot de passe" autocomplete="current-password">
+  <button id="try" type="button">Tester la connexion et la lecture des données</button>
+</fieldset>
+
+<script>
+  // Volontairement en script classique (pas un module) : si les modules ES sont
+  // le problème, cette page doit quand même s'afficher et le dire.
+  var results = document.getElementById("results");
+
+  function line(title, state, message) {
+    var id = "t-" + title.replace(/\W/g, "");
+    var box = document.getElementById(id);
+    if (!box) {
+      box = document.createElement("div");
+      box.id = id;
+      results.appendChild(box);
+    }
+    box.className = "line " + state;
+    box.innerHTML = "<b>" + title + "</b><code></code>";
+    box.querySelector("code").textContent = message;
+    return box;
+  }
+
+  line("Navigateur", "ok", navigator.userAgent);
+  line("Modules ES (import dynamique)", "wait", "test en cours…");
+
+  var SDK = "https://www.gstatic.com/firebasejs/12.0.0/";
+  var mods = {};
+
+  function loadModule(url) {
+    // import() écrit dans une chaîne évaluée : un Safari trop ancien lèverait
+    // une erreur de syntaxe au parsing du fichier entier sinon.
+    return new Function("u", "return import(u)")(url);
+  }
+
+  loadModule(SDK + "firebase-app.js").then(function (m) {
+    mods.app = m;
+    line("Modules ES (import dynamique)", "ok", "supportés");
+    line("SDK firebase-app.js", "ok", "chargé, initializeApp = " + typeof m.initializeApp);
+    return loadModule(SDK + "firebase-auth.js");
+  }).then(function (m) {
+    mods.auth = m;
+    line("SDK firebase-auth.js", "ok", "chargé");
+    return loadModule(SDK + "firebase-firestore.js");
+  }).then(function (m) {
+    mods.store = m;
+    line("SDK firebase-firestore.js", "ok", "chargé");
+    return loadModule("./firebase-config.js");
+  }).then(function (m) {
+    mods.config = m.firebaseConfig;
+    line("firebase-config.js", "ok", "projet = " + m.firebaseConfig.projectId);
+    var app = mods.app.initializeApp(m.firebaseConfig);
+    mods.instance = app;
+    line("Initialisation Firebase", "ok", "OK — domaine d'authentification : " + m.firebaseConfig.authDomain);
+    line("Prêt", "ok", "Saisir les identifiants ci-dessous et lancer le test.");
+  }).catch(function (e) {
+    line("Échec", "ko", (e && e.message ? e.message : String(e)));
+  });
+
+  document.getElementById("try").addEventListener("click", function () {
+    if (!mods.instance) { line("Test de connexion", "ko", "Firebase n'est pas initialisé, voir l'erreur ci-dessus."); return; }
+    var email = document.getElementById("email").value.trim();
+    var password = document.getElementById("password").value;
+    line("Test de connexion", "wait", "en cours…");
+    var auth = mods.auth.getAuth(mods.instance);
+    mods.auth.signInWithEmailAndPassword(auth, email, password).then(function (cred) {
+      line("Test de connexion", "ok", "connecté en tant que " + cred.user.email);
+      line("Lecture Firestore", "wait", "en cours…");
+      var db = mods.store.getFirestore(mods.instance);
+      return mods.store.getDoc(mods.store.doc(db, "trip", "plan"));
+    }).then(function (snap) {
+      if (!snap) return;
+      if (!snap.exists()) { line("Lecture Firestore", "ko", "document trip/plan absent"); return; }
+      var data = JSON.parse(snap.data().json);
+      line("Lecture Firestore", "ok", data.days.length + " jours lus — tout fonctionne.");
+    }).catch(function (e) {
+      line("Échec", "ko", (e && e.code ? e.code + " — " : "") + (e && e.message ? e.message : String(e)));
+    });
+  });
+
+  window.addEventListener("error", function (e) {
+    line("Erreur JavaScript", "ko", e.message + " (" + (e.filename || "?") + ":" + (e.lineno || "?") + ")");
+  });
+  window.addEventListener("unhandledrejection", function (e) {
+    line("Promesse rejetée", "ko", String(e.reason && e.reason.message ? e.reason.message : e.reason));
+  });
+</script>
+</body>
+</html>
