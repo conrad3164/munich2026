@@ -19,8 +19,12 @@ import {
 import { firebaseConfig } from "../firebase-config.js";
 import { mountTrip, toast } from "./render.js";
 
-// Signale que le module a bien été chargé (voir le garde-fou dans index.html).
+// Les SDK sont chargés : on rend le formulaire utilisable et on désamorce le
+// garde-fou d'index.html.
 document.documentElement.dataset.appReady = "1";
+const loginButton = document.getElementById("login-btn");
+loginButton.disabled = false;
+loginButton.textContent = "Se connecter";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);

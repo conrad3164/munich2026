@@ -6,6 +6,11 @@
 <meta name="theme-color" content="#0b3b6f">
 <title>Munich 2026</title>
 <link rel="stylesheet" href="assets/styles.css">
+<!-- Lance le téléchargement des SDK Firebase sans attendre l'analyse d'app.js.
+     Ignoré sans dommage par les navigateurs qui ne connaissent pas. -->
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js">
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js">
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏰</text></svg>">
 </head>
 <body>
@@ -22,7 +27,10 @@
     <input id="email" type="email" autocomplete="username" required>
     <label for="password">Mot de passe</label>
     <input id="password" type="password" autocomplete="current-password" required>
-    <button id="login-btn" type="submit">Se connecter</button>
+    <!-- Désactivé tant que app.js n'a pas fini de charger les SDK Firebase
+         (~700 Ko au premier accès) : sinon le clic ne déclenche rien et rien
+         ne l'explique. -->
+    <button id="login-btn" type="submit" disabled>Chargement…</button>
     <p id="login-error" class="login-error" hidden></p>
   </form>
 </div>
@@ -55,6 +63,11 @@
 <div id="toast" class="toast" hidden></div>
 
 <script type="module" src="assets/app.js"></script>
+
+<!-- Teste instantanément le support des modules ES, sans dépendre du réseau :
+     un navigateur trop ancien ignore purement et simplement ce bloc. -->
+<script type="module">document.documentElement.dataset.modulesOk = "1";</script>
+
 <script>
   // Sans ce garde-fou, un module qui ne se charge pas (réseau coupé, bloqueur de
   // publicité qui filtre gstatic.com) laisse une page muette : le bouton ne
@@ -66,13 +79,20 @@
     box.hidden = false;
   }
 
+  // 25 s, pas 8 : les trois SDK Firebase pèsent ~700 Ko au premier accès, et un
+  // délai trop court transformait un chargement lent en fausse alerte.
   setTimeout(function () {
     if (document.documentElement.dataset.appReady) return;
+    if (!document.documentElement.dataset.modulesOk) {
+      showLoginError("Ce navigateur ne gère pas les modules JavaScript. " +
+        "Utiliser une version récente de Safari, Chrome ou Firefox.");
+      return;
+    }
     showLoginError(
-      "Le script du site n'a pas pu se charger. Causes habituelles : pas de réseau, " +
-      "ou un bloqueur de publicité qui filtre gstatic.com. Voir la page diag.html."
+      "Le chargement dure anormalement longtemps. Causes possibles : réseau très lent, " +
+      "ou un bloqueur de publicité qui filtre gstatic.com. La page diag.html teste chaque brique."
     );
-  }, 8000);
+  }, 25000);
 
   // Une erreur qui n'apparaît que dans la console est invisible sur mobile :
   // on la remonte aussi à l'écran.
