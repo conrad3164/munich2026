@@ -126,7 +126,8 @@ h1, h2, h3 { margin: 0; font-weight: 650; letter-spacing: -.01em; }
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  flex-wrap: wrap;      /* plusieurs boutons de documents + Quitter sur écran étroit */
+  gap: 10px 12px;
   padding: 14px 16px 10px;
   max-width: 820px;
   margin: 0 auto;
