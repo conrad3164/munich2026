@@ -35,8 +35,25 @@ const $ = (id) => document.getElementById(id);
 const screens = { login: $("screen-login"), loading: $("screen-loading"), app: $("screen-app") };
 const ticketCache = new Map();
 
+// Journal visible à l'écran, activé par ?debug=1 dans l'adresse. Sans lui, une
+// panne sur mobile ou chez quelqu'un d'autre est indiagnostiquable : la console
+// du navigateur n'y est pas accessible. Déclaré avant tout appel à log().
+const debugBox = new URLSearchParams(location.search).has("debug")
+  ? document.getElementById("debug")
+  : null;
+if (debugBox) debugBox.hidden = false;
+
+function log(message) {
+  console.log("[munich2026]", message);
+  if (!debugBox) return;
+  const time = new Date().toLocaleTimeString("fr-FR");
+  debugBox.textContent += time + "  " + message + "\n";
+  debugBox.scrollTop = debugBox.scrollHeight;
+}
+
 function show(name) {
   for (const [key, el] of Object.entries(screens)) el.hidden = key !== name;
+  log("écran affiché : " + name);
 }
 
 /* ---------------------------------------------------------------- connexion */
@@ -48,10 +65,22 @@ $("login-form").addEventListener("submit", async (event) => {
   err.hidden = true;
   btn.disabled = true;
   btn.textContent = "Connexion…";
+  // La persistance n'est qu'un confort : rester connecté d'une visite à
+  // l'autre. Safari la refuse dans certaines configurations de confidentialité,
+  // et ce n'est pas une raison pour empêcher la connexion.
   try {
     await setPersistence(auth, browserLocalPersistence);
-    await signInWithEmailAndPassword(auth, $("email").value.trim(), $("password").value);
+    log("persistance activée");
   } catch (e) {
+    log("persistance indisponible : " + (e.code || e.message) + " (sans conséquence)");
+  }
+
+  try {
+    log("connexion en cours…");
+    await signInWithEmailAndPassword(auth, $("email").value.trim(), $("password").value);
+    log("connexion acceptée");
+  } catch (e) {
+    log("connexion refusée : " + (e.code || e.message));
     err.textContent = loginErrorMessage(e.code);
     err.hidden = false;
   } finally {
@@ -84,6 +113,7 @@ $("logout-btn").addEventListener("click", async () => {
 });
 
 onAuthStateChanged(auth, async (user) => {
+  log("état d'authentification : " + (user ? "connecté (" + user.email + ")" : "déconnecté"));
   if (!user) {
     $("password").value = "";
     show("login");
@@ -92,9 +122,12 @@ onAuthStateChanged(auth, async (user) => {
   show("loading");
   let trip;
   try {
+    log("lecture du programme dans Firestore…");
     trip = await loadTrip();
+    log("programme lu : " + trip.days.length + " jours");
   } catch (e) {
     console.error(e);
+    log("lecture impossible : " + (e.code || e.message));
     const cached = localStorage.getItem(CACHE_KEY);
     if (!cached) {
       show("login");
@@ -105,7 +138,20 @@ onAuthStateChanged(auth, async (user) => {
     trip = JSON.parse(cached);
     toast("Hors ligne : programme affiché depuis le cache.");
   }
-  mountTrip(trip, loadTicket);
+
+  // Une exception ici laisserait l'écran de chargement tourner indéfiniment,
+  // sans rien dire.
+  try {
+    mountTrip(trip, loadTicket);
+    log("programme affiché");
+  } catch (e) {
+    console.error(e);
+    log("affichage impossible : " + e.message);
+    show("login");
+    $("login-error").textContent = "Affichage impossible : " + e.message;
+    $("login-error").hidden = false;
+    return;
+  }
   show("app");
 });
 

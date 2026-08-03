@@ -353,6 +353,26 @@ main { max-width: 820px; margin: 0 auto; padding: 18px 16px 40px; }
 }
 .toast[hidden] { display: none; }
 
+/* Journal de diagnostic (?debug=1) : par-dessus tout le reste, y compris
+   l'écran de connexion, pour rester lisible quel que soit l'état. */
+#debug {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 45vh;
+  overflow: auto;
+  margin: 0;
+  padding: 10px 12px;
+  background: rgba(10, 18, 30, .94);
+  color: #a8e6a3;
+  font: 12px/1.45 ui-monospace, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  z-index: 100;
+  border-top: 2px solid #c8922a;
+}
+#debug[hidden] { display: none; }
+
 @media (min-width: 640px) {
   .topbar h1 { font-size: 22px; }
   .card { padding: 18px 20px; }
