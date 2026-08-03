@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b3b6f">
 <title>Munich 2026</title>
-<link rel="stylesheet" href="assets/styles.css">
+<!-- Le ?v= est incrémenté à chaque publication par private/publish.py : sans lui,
+     iOS continue de servir l'ancienne version pendant des jours. -->
+<link rel="stylesheet" href="assets/styles.css?v=3">
 <!-- Lance le téléchargement des SDK Firebase sans attendre l'analyse d'app.js.
      Ignoré sans dommage par les navigateurs qui ne connaissent pas. -->
 <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js">
@@ -68,7 +70,7 @@
 <!-- Journal de diagnostic, visible seulement si l'adresse contient ?debug=1 -->
 <pre id="debug" hidden></pre>
 
-<script type="module" src="assets/app.js"></script>
+<script type="module" src="assets/app.js?v=3"></script>
 
 <!-- Teste instantanément le support des modules ES, sans dépendre du réseau :
      un navigateur trop ancien ignore purement et simplement ce bloc. -->
