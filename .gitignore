@@ -5,3 +5,7 @@
 trip.json
 private/
 .DS_Store
+
+# Identifiants git : ils vivent dans private/, hors de ce dépôt. La règle est là
+# par précaution, au cas où le fichier serait un jour déplacé par erreur.
+.git-credentials

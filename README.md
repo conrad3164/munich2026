@@ -62,6 +62,24 @@ Puis sur GitHub : **Settings → Pages → Source : Deploy from a branch →
 `main` / `/ (root)`**. Le site sera servi sur
 `https://<compte>.github.io/munich2026/` au bout d'une minute.
 
+## Publier une modification du site
+
+`git` n'existe pas sur DSM : il est dans le conteneur `claude-code`, qui monte
+`/volume1/siteweb` au même chemin.
+
+```bash
+sudo docker exec -it claude-code sh
+cd /volume1/siteweb/munich2026/site && git push
+```
+
+Les identifiants sont enregistrés dans `../private/.git-credentials` (jeton
+« fine-grained » limité à ce dépôt, permission *Contents: read and write*), donc
+plus rien n'est demandé. Pour le remplacer à son expiration, réécrire ce fichier
+au format `https://<compte>:<jeton>@github.com` et le laisser en `chmod 600`.
+
+Compter environ une minute entre le push et la mise en ligne, plus le cache du
+navigateur : GitHub Pages sert avec `cache-control: max-age=600`.
+
 ## Mettre le programme à jour
 
 Modifier `private/trip.json`, puis `node seed.mjs --plan`. Aucun redéploiement
