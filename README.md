@@ -97,6 +97,20 @@ GitHub n'est nécessaire : le site relit Firestore à chaque connexion.
 | `../private/trip.json` | Source du programme (jamais publiée) |
 | `../private/seed.mjs` | Import vers Firestore |
 
+## En cas de problème pendant le voyage
+
+Deux outils sont volontairement conservés en ligne. Ils n'exposent aucune donnée
+— la lecture reste soumise aux règles Firestore — et restent invisibles en usage
+normal.
+
+- **`diag.html`** teste chaque brique séparément (support des modules,
+  chargement des trois SDK, configuration, initialisation, connexion, lecture
+  Firestore) et affiche le résultat à l'écran, sans console ni ordinateur.
+- **`?debug=1`** ajouté à l'adresse du site affiche un journal horodaté des
+  étapes de connexion et de chargement, en bas de l'écran.
+
+C'est ce second outil qui a permis de trouver la panne d'affichage initiale.
+
 ## Notes
 
 - La clé API Firebase visible dans `firebase-config.js` n'est pas un secret :
