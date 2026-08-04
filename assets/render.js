@@ -219,7 +219,31 @@ function renderFiltered(panel) {
   });
 }
 
+/** Une étape mal formée ne doit jamais faire disparaître celles qui suivent.
+ *  Les cartes sont construites dans une boucle unique : sans ce filet, une
+ *  exception l'interrompt et la fin de la journée s'efface en silence — c'est
+ *  ainsi que les deux châteaux du 30 août ont disparu, alors que les données
+ *  étaient correctes. On isole donc chaque carte, en conservant l'essentiel,
+ *  heure et titre, même quand le détail est illisible. */
 function renderItem(item) {
+  try {
+    return buildItem(item);
+  } catch (error) {
+    console.error("[munich2026] étape illisible :", item && item.title, error);
+    const card = el("article", "card");
+    const head = el("div", "card-head");
+    head.append(el("span", "time", (item && item.time) || ""));
+    const titleBox = el("div");
+    titleBox.append(el("h3", null, (item && item.title) || "Étape"));
+    head.append(titleBox);
+    card.append(head);
+    card.append(el("div", "warn",
+      "⚠️ Le détail de cette étape n'a pas pu s'afficher. L'heure et le titre sont conservés."));
+    return card;
+  }
+}
+
+function buildItem(item) {
   const card = el("article", "card");
 
   const head = el("div", "card-head");
