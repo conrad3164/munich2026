@@ -5,7 +5,8 @@ Carnet de voyage familial, protégé par un compte unique.
 Le dépôt ne contient **que le code d'affichage**. Le programme, les notes et les
 billets sont stockés dans Firestore et ne sont lisibles qu'une fois connecté :
 c'est Firebase (côté serveur) qui vérifie le mot de passe et applique les règles
-de `firestore.rules`. Rien de personnel n'est publié sur GitHub.
+de `../private/firestore.rules`. Rien de personnel n'est publié sur GitHub —
+pas même une adresse e-mail.
 
 ## Mise en place (une seule fois)
 
@@ -23,14 +24,29 @@ de `firestore.rules`. Rien de personnel n'est publié sur GitHub.
    `<votre-compte>.github.io`.
 6. **Firestore Database** → *Créer une base de données* → mode **production**,
    emplacement `eur3` ou `europe-west3`.
-7. **Firestore Database → Règles** : coller le contenu de `firestore.rules`,
-   après avoir remplacé les **deux** `REMPLACER@exemple.com` par l'e-mail du
-   compte. **Publier**.
+7. **Firestore Database → Données** : créer la collection `allowlist`, puis un
+   document par compte autorisé. **L'identifiant du document est l'e-mail**, et
+   le compte qui lance `seed.mjs` porte en plus le champ booléen `admin = true`.
+   Cette collection est fermée en lecture pour tout le monde : seul le moteur de
+   règles la consulte.
+8. **Firestore Database → Règles** : coller le contenu de
+   `../private/firestore.rules`. **Publier**. Faire l'étape 7 *avant*, sinon
+   plus personne ne peut lire.
+9. **Authentication → Settings → User actions** : décocher
+   **Enable create (sign-up)**. Sans cela, la clé API étant publique, n'importe
+   qui peut se créer un compte sur le projet (il ne lira rien, mais autant
+   fermer la porte).
+10. **Google Cloud Console → APIs & Services → Credentials** → clé
+    *Browser key (auto created by Firebase)* → **Application restrictions →
+    HTTP referrers** → ajouter `conrad3164.github.io/*`. La clé devient
+    inutilisable depuis un autre site.
 
-> La lecture est volontairement réservée aux adresses listées dans les règles,
-> pas à « tout compte authentifié » : la clé API étant publique, un inconnu peut
-> se créer un compte sur le projet. Pour ajouter quelqu'un plus tard, créer son
-> utilisateur dans Authentication **et** ajouter son e-mail dans `isFamily()`.
+> La lecture est volontairement réservée aux comptes présents dans `allowlist`,
+> pas à « tout compte authentifié » : la clé API étant publique, la simple
+> authentification ne prouve rien. Pour ajouter quelqu'un plus tard : créer son
+> utilisateur dans Authentication **et** son document dans `allowlist`. Aucune
+> republication des règles n'est nécessaire — et aucun e-mail n'apparaît donc
+> plus jamais dans le dépôt.
 
 ### 2. Import des données
 
@@ -97,7 +113,7 @@ GitHub n'est nécessaire : le site relit Firestore à chaque connexion.
 | `assets/app.js` | Connexion Firebase, lecture Firestore, rendu du programme |
 | `assets/styles.css` | Mise en forme, pensée pour le mobile |
 | `firebase-config.js` | Identifiants publics du projet Firebase |
-| `firestore.rules` | Règles de sécurité à publier dans la console |
+| `../private/firestore.rules` | Règles de sécurité à publier dans la console (jamais publiées sur GitHub) |
 | `../private/trip.json` | Source du programme (jamais publiée) |
 | `../private/seed.mjs` | Import vers Firestore |
 
@@ -118,8 +134,13 @@ C'est ce second outil qui a permis de trouver la panne d'affichage initiale.
 ## Notes
 
 - La clé API Firebase visible dans `firebase-config.js` n'est pas un secret :
-  elle identifie le projet, elle n'autorise rien. La protection vient des règles
-  Firestore et de l'authentification.
+  elle identifie le projet, elle n'autorise rien. **Elle ne peut pas être
+  cachée** — le navigateur la télécharge depuis ce dépôt, donc la masquer
+  casserait le site sans rien protéger. Ce qui protège réellement, dans l'ordre :
+  les règles Firestore (`allowlist`), la fermeture des inscriptions, et la
+  restriction de la clé aux referrers `conrad3164.github.io`.
+- Ce dépôt ne contient **aucune adresse e-mail** : ni dans le code, ni dans les
+  règles (elles vivent dans `private/`), ni dans l'historique git.
 - Le programme est mis en cache dans le navigateur après la première ouverture,
   ce qui permet de le consulter même sans réseau. Le cache est effacé à la
   déconnexion.

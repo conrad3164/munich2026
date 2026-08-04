@@ -9,3 +9,7 @@ private/
 # Identifiants git : ils vivent dans private/, hors de ce dépôt. La règle est là
 # par précaution, au cas où le fichier serait un jour déplacé par erreur.
 .git-credentials
+
+# Règles Firestore : elles vivent dans private/. Le navigateur n'en a jamais
+# besoin, et les publier reviendrait à publier la liste des comptes autorisés.
+firestore.rules
