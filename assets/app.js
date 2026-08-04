@@ -16,8 +16,7 @@ import {
   query,
   orderBy
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
-import { firebaseConfig } from "../firebase-config.js";
-import { mountTrip, toast } from "./render.js?v=7";
+import { mountTrip, toast } from "./render.js?v=8";
 
 // Les SDK sont chargés : on rend le formulaire utilisable et on désamorce le
 // garde-fou d'index.html.
@@ -26,9 +25,16 @@ const loginButton = document.getElementById("login-btn");
 loginButton.disabled = false;
 loginButton.textContent = "Se connecter";
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+// La configuration Firebase n'est plus dans ce dépôt : elle est délivrée par le
+// NAS, et seulement à qui présente le mot de passe du compte. Le dépôt GitHub
+// étant public, l'y laisser revenait à publier l'identifiant du projet et
+// l'e-mail de connexion.
+//
+// Elle est ensuite conservée en local : les visites suivantes n'ont plus besoin
+// du NAS, et le site reste consultable même si celui-ci est injoignable. Seule
+// la toute première connexion sur un appareil en dépend.
+const CONFIG_URL = "https://munich-api.jeppnas.fr/config";
+const CONFIG_KEY = "munich2026.config";
 
 const CACHE_KEY = "munich2026.plan";
 const $ = (id) => document.getElementById(id);
@@ -56,6 +62,50 @@ function show(name) {
   log("écran affiché : " + name);
 }
 
+/* ------------------------------------------------------------ configuration */
+
+// Renseignés au démarrage de Firebase, donc pas avant d'avoir la configuration.
+let auth = null;
+let db = null;
+
+// Erreur déjà rédigée pour l'utilisateur, par opposition aux codes « auth/… »
+// que renvoie Firebase et qu'il faut traduire.
+class ConfigError extends Error {}
+
+function startFirebase(config) {
+  const app = initializeApp(config);
+  auth = getAuth(app);
+  db = getFirestore(app);
+  onAuthStateChanged(auth, handleAuthChange);
+}
+
+async function fetchConfig(email, password) {
+  let response;
+  try {
+    response = await fetch(CONFIG_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password })
+    });
+  } catch {
+    // Panne réseau, NAS éteint, box coupée : indistinguables depuis ici.
+    throw new ConfigError(
+      "Service de configuration injoignable. Si c'est la première connexion sur "
+      + "cet appareil, il faut que le NAS soit accessible."
+    );
+  }
+  if (response.status === 401) throw new ConfigError("E-mail ou mot de passe incorrect.");
+  if (response.status === 429) {
+    throw new ConfigError("Trop de tentatives. Réessayer dans un quart d'heure.");
+  }
+  if (!response.ok) {
+    throw new ConfigError("Service de configuration en erreur (" + response.status + ").");
+  }
+  const data = await response.json();
+  if (!data.firebaseConfig) throw new ConfigError("Configuration reçue illisible.");
+  return data.firebaseConfig;
+}
+
 /* ---------------------------------------------------------------- connexion */
 
 $("login-form").addEventListener("submit", async (event) => {
@@ -64,24 +114,45 @@ $("login-form").addEventListener("submit", async (event) => {
   const err = $("login-error");
   err.hidden = true;
   btn.disabled = true;
-  btn.textContent = "Connexion…";
-  // La persistance n'est qu'un confort : rester connecté d'une visite à
-  // l'autre. Safari la refuse dans certaines configurations de confidentialité,
-  // et ce n'est pas une raison pour empêcher la connexion.
-  try {
-    await setPersistence(auth, browserLocalPersistence);
-    log("persistance activée");
-  } catch (e) {
-    log("persistance indisponible : " + (e.code || e.message) + " (sans conséquence)");
-  }
+  const email = $("email").value.trim();
+  const password = $("password").value;
 
   try {
+    // Première connexion sur cet appareil : il faut d'abord obtenir la
+    // configuration auprès du NAS, en prouvant qu'on connaît le mot de passe.
+    if (!auth) {
+      btn.textContent = "Configuration…";
+      log("demande de la configuration au NAS…");
+      const config = await fetchConfig(email, password);
+      localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+      startFirebase(config);
+      log("configuration obtenue et mémorisée");
+    }
+
+    btn.textContent = "Connexion…";
+    // La persistance n'est qu'un confort : rester connecté d'une visite à
+    // l'autre. Safari la refuse dans certaines configurations de
+    // confidentialité, et ce n'est pas une raison pour empêcher la connexion.
+    try {
+      await setPersistence(auth, browserLocalPersistence);
+      log("persistance activée");
+    } catch (e) {
+      log("persistance indisponible : " + (e.code || e.message) + " (sans conséquence)");
+    }
+
     log("connexion en cours…");
-    await signInWithEmailAndPassword(auth, $("email").value.trim(), $("password").value);
+    await signInWithEmailAndPassword(auth, email, password);
     log("connexion acceptée");
   } catch (e) {
-    log("connexion refusée : " + (e.code || e.message));
-    err.textContent = loginErrorMessage(e.code);
+    log("échec : " + (e.code || e.message));
+    // Une configuration mémorisée qui ne correspond plus au projet Firebase
+    // rendrait la connexion définitivement impossible : on l'oublie pour que la
+    // tentative suivante reparte du NAS.
+    if (e.code && e.code.startsWith("auth/") && e.code.includes("api-key")) {
+      localStorage.removeItem(CONFIG_KEY);
+      log("configuration mémorisée invalide : oubliée");
+    }
+    err.textContent = e instanceof ConfigError ? e.message : loginErrorMessage(e.code);
     err.hidden = false;
   } finally {
     btn.disabled = false;
@@ -112,7 +183,7 @@ $("logout-btn").addEventListener("click", async () => {
   await signOut(auth);
 });
 
-onAuthStateChanged(auth, async (user) => {
+async function handleAuthChange(user) {
   log("état d'authentification : " + (user ? "connecté (" + user.email + ")" : "déconnecté"));
   if (!user) {
     $("password").value = "";
@@ -153,7 +224,7 @@ onAuthStateChanged(auth, async (user) => {
     return;
   }
   show("app");
-});
+}
 
 /* ------------------------------------------------------------------ données */
 
@@ -182,4 +253,27 @@ async function loadTicket(id) {
   const entry = { url, filename: meta.filename || id + ".pdf" };
   ticketCache.set(id, entry);
   return entry;
+}
+
+/* ----------------------------------------------------------------- démarrage */
+
+// Placé en dernier : startFirebase() déclenche immédiatement handleAuthChange,
+// qui a besoin que tout le reste du module soit défini.
+//
+// Si la configuration a déjà été obtenue sur cet appareil, on redémarre Firebase
+// sans rien demander au NAS — c'est ce qui permet au site de fonctionner quand
+// le NAS est éteint, et de restaurer la session automatiquement.
+const savedConfig = localStorage.getItem(CONFIG_KEY);
+if (savedConfig) {
+  try {
+    startFirebase(JSON.parse(savedConfig));
+    log("configuration reprise de la mémoire locale");
+  } catch (e) {
+    log("configuration mémorisée illisible : " + e.message);
+    localStorage.removeItem(CONFIG_KEY);
+    show("login");
+  }
+} else {
+  log("aucune configuration mémorisée : première connexion sur cet appareil");
+  show("login");
 }

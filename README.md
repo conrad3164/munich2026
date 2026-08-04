@@ -16,7 +16,8 @@ pas même une adresse e-mail.
    Google Analytics n'est pas nécessaire.
 2. Dans le projet, icône **`</>`** (Application Web) → nom `munich2026` →
    **Enregistrer l'application**. Firebase affiche un bloc `firebaseConfig` :
-   recopier ces valeurs dans `firebase-config.js`.
+   recopier ces valeurs dans `secrets.json` du service `munich-api` (voir plus
+   bas), **et surtout pas dans ce dépôt**, qui est public.
 3. **Authentication** → *Commencer* → activer le fournisseur **E-mail/Mot de passe**.
 4. **Authentication → Users → Ajouter un utilisateur** : créer le compte unique
    (e-mail + mot de passe). C'est avec ce couple que toute la famille se connectera.
@@ -48,7 +49,50 @@ pas même une adresse e-mail.
 > republication des règles n'est nécessaire — et aucun e-mail n'apparaît donc
 > plus jamais dans le dépôt.
 
-### 2. Import des données
+### 2. Service `munich-api` (sur le NAS)
+
+Le dépôt étant public, la configuration Firebase n'y figure pas. Elle est servie
+par un petit service sur le NAS, qui ne la délivre qu'à qui présente le mot de
+passe du compte Firebase — le même que sur le site, rien de nouveau à retenir.
+
+```
+Le site (GitHub Pages) demande e-mail + mot de passe
+   → POST https://munich-api.jeppnas.fr/config
+   → le NAS vérifie (PBKDF2, 10 essais / quart d'heure par IP)
+   → renvoie firebaseConfig
+   → le site initialise Firebase et se connecte
+```
+
+La configuration reçue est **mémorisée dans le navigateur** : les visites
+suivantes n'interrogent plus le NAS. Le site reste donc utilisable si le NAS est
+éteint ; seule la toute première connexion sur un appareil en dépend.
+
+Fichiers, hors de ce dépôt :
+
+| Chemin | Rôle |
+|---|---|
+| `/volume1/docker/dockers/munich-api/docker-compose.yml` | conteneur (`python:3.13-alpine`, aucune dépendance) |
+| `/volume1/docker/config/munich-api/server.py` | le service |
+| `/volume1/docker/config/munich-api/secrets.json` | `firebaseConfig` + condensats des mots de passe (chmod 600) |
+| `/volume1/docker/config/munich-api/set_password.py` | enregistre un compte autorisé |
+
+Autoriser un compte (le mot de passe est saisi, jamais passé en argument) :
+
+```bash
+cd /volume1/docker/config/munich-api
+python3 set_password.py <e-mail-de-connexion-au-site>
+sudo docker restart munich-api
+```
+
+> **Quel e-mail ?** Celui que la famille tape dans le formulaire du site — le
+> compte créé dans *Authentication → Users*. **Pas** le compte Google
+> propriétaire du projet Firebase : celui-là sert à ouvrir la console et
+> n'intervient jamais dans ce flux.
+>
+> Si le mot de passe de ce compte change côté Firebase, rejouer cette commande :
+> le service en garde un condensat indépendant.
+
+### 3. Import des données
 
 Depuis le NAS, dans `/volume1/siteweb/munich2026/private` :
 
@@ -63,7 +107,7 @@ Le script pousse `trip.json` dans `trip/plan` et les PDF de `../billets/` dans
 la collection `tickets`. Il est ré-exécutable : `node seed.mjs --plan` ne
 réimporte que le programme.
 
-### 3. Publication sur GitHub Pages
+### 4. Publication sur GitHub Pages
 
 ```bash
 cd /volume1/siteweb/munich2026/site
@@ -112,7 +156,7 @@ GitHub n'est nécessaire : le site relit Firestore à chaque connexion.
 | `index.html` | Structure de la page (écran de connexion + application) |
 | `assets/app.js` | Connexion Firebase, lecture Firestore, rendu du programme |
 | `assets/styles.css` | Mise en forme, pensée pour le mobile |
-| `firebase-config.js` | Identifiants publics du projet Firebase |
+| *(config Firebase)* | Servie par `munich-api` sur le NAS, plus par ce dépôt |
 | `../private/firestore.rules` | Règles de sécurité à publier dans la console (jamais publiées sur GitHub) |
 | `../private/trip.json` | Source du programme (jamais publiée) |
 | `../private/seed.mjs` | Import vers Firestore |
@@ -133,14 +177,16 @@ C'est ce second outil qui a permis de trouver la panne d'affichage initiale.
 
 ## Notes
 
-- La clé API Firebase visible dans `firebase-config.js` n'est pas un secret :
-  elle identifie le projet, elle n'autorise rien. **Elle ne peut pas être
-  cachée** — le navigateur la télécharge depuis ce dépôt, donc la masquer
-  casserait le site sans rien protéger. Ce qui protège réellement, dans l'ordre :
-  les règles Firestore (`allowlist`), la fermeture des inscriptions, et la
-  restriction de la clé aux referrers `conrad3164.github.io`.
-- Ce dépôt ne contient **aucune adresse e-mail** : ni dans le code, ni dans les
-  règles (elles vivent dans `private/`), ni dans l'historique git.
+- **Ce dépôt ne contient aucun identifiant** : ni clé API, ni identifiant de
+  projet, ni adresse e-mail — ni dans le code, ni dans l'historique git. Un
+  visiteur anonyme n'y trouve qu'un formulaire vide.
+- La clé API Firebase n'est pas un secret au sens strict (elle identifie le
+  projet, elle n'autorise rien par elle-même), mais la publier revenait à
+  désigner le projet et son compte à tout robot d'indexation. Elle est
+  désormais délivrée par le NAS, contre le mot de passe.
+- Ce qui protège réellement les données, dans l'ordre : **les règles Firestore**
+  (appliquées par Google, infranchissables depuis un navigateur), le mot de
+  passe du compte, puis `munich-api`.
 - Le programme est mis en cache dans le navigateur après la première ouverture,
   ce qui permet de le consulter même sans réseau. Le cache est effacé à la
   déconnexion.

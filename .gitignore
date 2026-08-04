@@ -13,3 +13,7 @@ private/
 # Règles Firestore : elles vivent dans private/. Le navigateur n'en a jamais
 # besoin, et les publier reviendrait à publier la liste des comptes autorisés.
 firestore.rules
+
+# Configuration Firebase : elle est servie par le NAS (munich-api), plus par ce
+# dépôt. La règle empêche qu'un ancien fichier y revienne par mégarde.
+firebase-config.js
