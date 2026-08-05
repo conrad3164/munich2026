@@ -16,7 +16,7 @@ import {
   query,
   orderBy
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
-import { mountTrip, toast } from "./render.js?v=15";
+import { mountTrip, toast } from "./render.js?v=16";
 
 // Les SDK sont chargés : on rend le formulaire utilisable et on désamorce le
 // garde-fou d'index.html.
@@ -30,16 +30,15 @@ loginButton.textContent = "Se connecter";
 // l'e-mail de connexion. Elle y vit chiffrée (config.enc.json), sous une clé
 // dérivée du mot de passe du compte : publique, mais illisible sans lui.
 //
-// Le NAS (munich-api) sait aussi la délivrer et reste le recours : c'était la
-// solution d'origine, mais un réseau d'entreprise filtre couramment
-// munich-api.jeppnas.fr — domaine personnel sur IP résidentielle — et la
-// première connexion depuis le bureau devenait impossible. Le blob chiffré,
-// servi par GitHub, ne dépend d'aucun réseau particulier.
+// Un service sur le NAS (munich-api) la délivrait auparavant contre le même mot
+// de passe. Il a été démonté le 05/08/2026 : le blob est servi par GitHub Pages,
+// donc par la même origine que le site. Un recours hébergé ailleurs ne pouvait
+// rien sauver — sans GitHub Pages il n'y a pas de site pour l'appeler — et il
+// laissait un point d'entrée exposé sur Internet qui ne servait jamais.
 //
 // Elle est ensuite conservée en local : les visites suivantes ne déchiffrent
 // plus rien et n'interrogent plus personne.
 const CONFIG_BLOB_URL = "./config.enc.json";
-const CONFIG_URL = "https://munich-api.jeppnas.fr/config";
 const CONFIG_KEY = "munich2026.config";
 
 const CACHE_KEY = "munich2026.plan";
@@ -135,57 +134,16 @@ async function decryptLocalConfig(password) {
   return null;
 }
 
-// Le blob d'abord, le NAS ensuite. Le NAS reste utile quand le blob n'a pas été
-// régénéré après un changement de mot de passe : il fait alors autorité.
-async function obtainConfig(email, password) {
+// Le blob chiffré est désormais la seule source. S'il ne s'ouvre pas, c'est le
+// mot de passe qui est faux — ou, cas rare mais réel, le blob qui n'a pas été
+// régénéré après un changement de mot de passe côté Firebase. Le message ne
+// distingue pas les deux : l'utilisateur ne peut rien faire du second cas, et
+// c'est le premier dans l'immense majorité des tentatives.
+async function obtainConfig(password) {
   const local = await decryptLocalConfig(password);
-  if (local) {
-    log("configuration déchiffrée depuis le dépôt");
-    return local;
-  }
-  log("blob local inutilisable : recours au NAS");
-  try {
-    return await fetchConfig(email, password);
-  } catch (e) {
-    // Le NAS est injoignable et le blob n'a rien donné. Le mot de passe est de
-    // très loin l'explication la plus probable : le dire, plutôt que d'envoyer
-    // l'utilisateur enquêter sur un NAS dont il n'a pas besoin.
-    if (e instanceof ConfigError && e.unreachable) {
-      throw new ConfigError("E-mail ou mot de passe incorrect.");
-    }
-    throw e;
-  }
-}
-
-async function fetchConfig(email, password) {
-  let response;
-  try {
-    response = await fetch(CONFIG_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password })
-    });
-  } catch {
-    // Panne réseau, NAS éteint, box coupée, filtrage d'entreprise :
-    // indistinguables depuis ici. Le drapeau permet à obtainConfig() de
-    // reformuler, puisque le blob chiffré a déjà échoué juste avant.
-    const error = new ConfigError(
-      "Service de configuration injoignable. Si c'est la première connexion sur "
-      + "cet appareil, il faut que le NAS soit accessible."
-    );
-    error.unreachable = true;
-    throw error;
-  }
-  if (response.status === 401) throw new ConfigError("E-mail ou mot de passe incorrect.");
-  if (response.status === 429) {
-    throw new ConfigError("Trop de tentatives. Réessayer dans un quart d'heure.");
-  }
-  if (!response.ok) {
-    throw new ConfigError("Service de configuration en erreur (" + response.status + ").");
-  }
-  const data = await response.json();
-  if (!data.firebaseConfig) throw new ConfigError("Configuration reçue illisible.");
-  return data.firebaseConfig;
+  if (!local) throw new ConfigError("E-mail ou mot de passe incorrect.");
+  log("configuration déchiffrée depuis le dépôt");
+  return local;
 }
 
 /* ---------------------------------------------------------------- connexion */
@@ -205,7 +163,7 @@ $("login-form").addEventListener("submit", async (event) => {
     if (!auth) {
       btn.textContent = "Configuration…";
       log("obtention de la configuration…");
-      const config = await obtainConfig(email, password);
+      const config = await obtainConfig(password);
       localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
       startFirebase(config);
       log("configuration obtenue et mémorisée");

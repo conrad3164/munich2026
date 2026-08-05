@@ -63,11 +63,9 @@
 
   var SDK = "https://www.gstatic.com/firebasejs/12.0.0/";
   // La configuration Firebase n'est pas en clair sur ce site : elle est publiée
-  // chiffrée sous le mot de passe du compte, le NAS ne servant plus que de
-  // recours. Le diagnostic ne peut donc rien initialiser avant que les
-  // identifiants soient saisis, et il teste les deux chemins séparément.
+  // chiffrée sous le mot de passe du compte. Le diagnostic ne peut donc rien
+  // initialiser avant que les identifiants soient saisis.
   var CONFIG_BLOB_URL = "./config.enc.json";
-  var CONFIG_URL = "https://munich-api.jeppnas.fr/config";
   var mods = {};
 
   function fromBase64(value) {
@@ -142,26 +140,12 @@
 
     line("Configuration (dépôt, chiffrée)", "wait", "déchiffrement en cours…");
     decryptLocalConfig(password).then(function (local) {
-      if (local) {
-        line("Configuration (dépôt, chiffrée)", "ok", "déchiffrée, projet = " + local.projectId);
-        return { firebaseConfig: local };
+      if (!local) {
+        throw new Error("aucune entrée du blob ne s'ouvre avec ce mot de passe "
+          + "(mot de passe faux, ou config.enc.json non régénéré après un changement)");
       }
-      line("Configuration (dépôt, chiffrée)", "ko",
-        "aucune entrée ne s'ouvre avec ce mot de passe (blob absent, ou mot de passe faux)");
-      line("Configuration (NAS)", "wait", "recours au NAS, en cours…");
-      return fetch(CONFIG_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email, password: password })
-      }).then(function (r) {
-        if (r.status === 401) throw new Error("mot de passe refusé par le NAS (401)");
-        if (r.status === 429) throw new Error("trop de tentatives, réessayer dans un quart d'heure (429)");
-        if (!r.ok) throw new Error("service de configuration en erreur (" + r.status + ")");
-        return r.json();
-      }).then(function (d) {
-        line("Configuration (NAS)", "ok", "projet = " + d.firebaseConfig.projectId);
-        return d;
-      });
+      line("Configuration (dépôt, chiffrée)", "ok", "déchiffrée, projet = " + local.projectId);
+      return { firebaseConfig: local };
     }).then(function (d) {
       // initializeApp refuse d'être appelé deux fois : au second essai, on
       // réutilise l'instance déjà créée.
