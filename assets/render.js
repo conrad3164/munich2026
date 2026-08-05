@@ -270,6 +270,15 @@ function buildItem(item) {
 
   if (item.warn) card.append(el("div", "warn", "⚠️ " + item.warn));
 
+  // Après l'avertissement, avant les notes : ce qui reste à décider pèse plus
+  // qu'un commentaire, moins qu'un danger.
+  if (item.decide) {
+    const box = el("div", "decide");
+    box.append(el("span", "decide-label", "À trancher"));
+    box.append(document.createTextNode(item.decide));
+    card.append(box);
+  }
+
   (item.notes || []).forEach((note) => {
     const box = el("div", "note");
     box.append(el("span", "note-label", "Note"));

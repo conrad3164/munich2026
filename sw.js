@@ -11,7 +11,7 @@
  * la dernière version ; sans réseau, le site reste consultable.
  */
 
-const CACHE = "munich2026-v11";
+const CACHE = "munich2026-v12";
 
 // Les SDK Firebase pèsent ~700 Ko et leur URL contient déjà le numéro de
 // version : une fois en cache, ils n'ont plus jamais besoin d'être retéléchargés.

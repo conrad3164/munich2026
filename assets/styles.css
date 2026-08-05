@@ -11,6 +11,12 @@
   --alerte: #b3261e;
   --alerte-fond: #fdeceb;
   --note-fond: #fff8e8;
+  /* Violet : ni le rouge de l'alerte (un risque), ni l'or de la note (une
+     remarque). Une décision restée en suspens avant le départ mérite sa propre
+     couleur, sinon elle se noie dans les avertissements et on ne la tranche
+     jamais. */
+  --arbitrage: #6b3fa0;
+  --arbitrage-fond: #f3eefb;
   --rayon: 14px;
   --ombre: 0 1px 2px rgba(16, 32, 55, .06), 0 6px 20px rgba(16, 32, 55, .07);
 }
@@ -369,6 +375,28 @@ main { max-width: 820px; margin: 0 auto; padding: 18px 16px 40px; }
   color: #7d1c16;
 }
 
+/* Point resté à trancher avant le départ. Bordure plus épaisse que les autres
+   encadrés : c'est le seul bloc du programme qui appelle une action de notre
+   part, il doit se repérer en faisant défiler sans lire. */
+.decide {
+  margin-top: 12px;
+  padding: 11px 13px;
+  background: var(--arbitrage-fond);
+  border-left: 5px solid var(--arbitrage);
+  border-radius: 0 8px 8px 0;
+  font-size: 14px;
+  color: #4b2b73;
+}
+.decide-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--arbitrage);
+  margin-bottom: 3px;
+}
+
 /* horaires, tarifs, durée */
 .info {
   margin-top: 12px;
@@ -504,6 +532,8 @@ main { max-width: 820px; margin: 0 auto; padding: 18px 16px 40px; }
     --alerte: #ff9c92;
     --alerte-fond: #3b201e;
     --note-fond: #322818;
+    --arbitrage: #c4a6ee;
+    --arbitrage-fond: #2a2138;
     --ombre: 0 1px 2px rgba(0, 0, 0, .35), 0 6px 20px rgba(0, 0, 0, .4);
   }
 
@@ -525,6 +555,7 @@ main { max-width: 820px; margin: 0 auto; padding: 18px 16px 40px; }
   .note-label, .address-label { color: var(--or); }
   .address { color: #f0e2c4; }
   .warn, .travel .caution { color: #ffb3aa; }
+  .decide { color: #d9c6f5; }
 
   .btn { background: #1d2734; border-color: #2f3b4b; }
   .btn.primary { background: #1e4f80; border-color: #1e4f80; color: #fff; }
