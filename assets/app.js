@@ -16,7 +16,7 @@ import {
   query,
   orderBy
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
-import { mountTrip, toast } from "./render.js?v=16";
+import { mountTrip, toast } from "./render.js?v=17";
 
 // Les SDK sont chargés : on rend le formulaire utilisable et on désamorce le
 // garde-fou d'index.html.
@@ -90,7 +90,7 @@ function fromBase64(value) {
 
 // Renvoie la configuration si le mot de passe ouvre une des entrées du blob,
 // null sinon — blob absent, illisible, ou mot de passe qui ne correspond à
-// aucune entrée. Aucune de ces situations n'est une erreur : il reste le NAS.
+// aucune entrée. Le tri entre ces cas est fait par l'appelant.
 async function decryptLocalConfig(password) {
   let blob;
   try {
@@ -187,7 +187,7 @@ $("login-form").addEventListener("submit", async (event) => {
     log("échec : " + (e.code || e.message));
     // Une configuration mémorisée qui ne correspond plus au projet Firebase
     // rendrait la connexion définitivement impossible : on l'oublie pour que la
-    // tentative suivante reparte du NAS.
+    // tentative suivante reparte du blob chiffré.
     if (e.code && e.code.startsWith("auth/") && e.code.includes("api-key")) {
       localStorage.removeItem(CONFIG_KEY);
       log("configuration mémorisée invalide : oubliée");
