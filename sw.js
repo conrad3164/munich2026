@@ -11,7 +11,7 @@
  * la dernière version ; sans réseau, le site reste consultable.
  */
 
-const CACHE = "munich2026-v10";
+const CACHE = "munich2026-v11";
 
 // Les SDK Firebase pèsent ~700 Ko et leur URL contient déjà le numéro de
 // version : une fois en cache, ils n'ont plus jamais besoin d'être retéléchargés.
@@ -22,7 +22,10 @@ const PRECACHE = [
   "./index.html",
   "./assets/app.js",
   "./assets/render.js",
-  "./assets/styles.css"
+  "./assets/styles.css",
+  // Configuration Firebase chiffrée : sans elle, une première connexion hors
+  // ligne échouerait alors que tout le reste du site est déjà en cache.
+  "./config.enc.json"
 ];
 
 self.addEventListener("install", (event) => {

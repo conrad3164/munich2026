@@ -62,11 +62,55 @@
   line("Modules ES (import dynamique)", "wait", "test en cours…");
 
   var SDK = "https://www.gstatic.com/firebasejs/12.0.0/";
-  // La configuration Firebase n'est plus servie par ce site : elle vient du NAS
-  // et n'est délivrée que contre le mot de passe. Le diagnostic ne peut donc
-  // plus rien initialiser avant que les identifiants soient saisis.
+  // La configuration Firebase n'est pas en clair sur ce site : elle est publiée
+  // chiffrée sous le mot de passe du compte, le NAS ne servant plus que de
+  // recours. Le diagnostic ne peut donc rien initialiser avant que les
+  // identifiants soient saisis, et il teste les deux chemins séparément.
+  var CONFIG_BLOB_URL = "./config.enc.json";
   var CONFIG_URL = "https://munich-api.jeppnas.fr/config";
   var mods = {};
+
+  function fromBase64(value) {
+    return Uint8Array.from(atob(value), function (c) { return c.charCodeAt(0); });
+  }
+
+  // Résout avec la configuration si une entrée du blob s'ouvre, avec null
+  // sinon. Volontairement en chaînes de promesses, comme le reste du fichier :
+  // une syntaxe trop récente ferait échouer le parsing de toute la page, et
+  // c'est précisément quand rien ne marche que cette page doit s'afficher.
+  function decryptLocalConfig(password) {
+    if (!window.crypto || !crypto.subtle) return Promise.resolve(null);
+    return fetch(CONFIG_BLOB_URL, { cache: "no-cache" }).then(function (r) {
+      return r.ok ? r.json() : null;
+    }).then(function (blob) {
+      if (!blob || !blob.kdf || !Array.isArray(blob.entries)) return null;
+      return crypto.subtle.importKey(
+        "raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveKey"]
+      ).then(function (material) {
+        // Le blob ne nomme pas les comptes : on essaie les entrées une à une.
+        return blob.entries.reduce(function (chain, entry) {
+          return chain.then(function (found) {
+            if (found) return found;
+            return crypto.subtle.deriveKey(
+              { name: "PBKDF2", salt: fromBase64(entry.salt),
+                iterations: blob.kdf.iterations, hash: blob.kdf.hash },
+              material, { name: "AES-GCM", length: 256 }, false, ["decrypt"]
+            ).then(function (key) {
+              return crypto.subtle.decrypt(
+                { name: "AES-GCM", iv: fromBase64(entry.iv) }, key, fromBase64(entry.ct)
+              );
+            }).then(function (clear) {
+              return JSON.parse(new TextDecoder().decode(clear));
+            }).catch(function () {
+              return null;
+            });
+          });
+        }, Promise.resolve(null));
+      });
+    }).catch(function () {
+      return null;
+    });
+  }
 
   function loadModule(url) {
     // import() écrit dans une chaîne évaluée : un Safari trop ancien lèverait
@@ -96,18 +140,29 @@
     var email = document.getElementById("email").value.trim();
     var password = document.getElementById("password").value;
 
-    line("Configuration (NAS)", "wait", "en cours…");
-    fetch(CONFIG_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: email, password: password })
-    }).then(function (r) {
-      if (r.status === 401) throw new Error("mot de passe refusé par le NAS (401)");
-      if (r.status === 429) throw new Error("trop de tentatives, réessayer dans un quart d'heure (429)");
-      if (!r.ok) throw new Error("service de configuration en erreur (" + r.status + ")");
-      return r.json();
+    line("Configuration (dépôt, chiffrée)", "wait", "déchiffrement en cours…");
+    decryptLocalConfig(password).then(function (local) {
+      if (local) {
+        line("Configuration (dépôt, chiffrée)", "ok", "déchiffrée, projet = " + local.projectId);
+        return { firebaseConfig: local };
+      }
+      line("Configuration (dépôt, chiffrée)", "ko",
+        "aucune entrée ne s'ouvre avec ce mot de passe (blob absent, ou mot de passe faux)");
+      line("Configuration (NAS)", "wait", "recours au NAS, en cours…");
+      return fetch(CONFIG_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email, password: password })
+      }).then(function (r) {
+        if (r.status === 401) throw new Error("mot de passe refusé par le NAS (401)");
+        if (r.status === 429) throw new Error("trop de tentatives, réessayer dans un quart d'heure (429)");
+        if (!r.ok) throw new Error("service de configuration en erreur (" + r.status + ")");
+        return r.json();
+      }).then(function (d) {
+        line("Configuration (NAS)", "ok", "projet = " + d.firebaseConfig.projectId);
+        return d;
+      });
     }).then(function (d) {
-      line("Configuration (NAS)", "ok", "projet = " + d.firebaseConfig.projectId);
       // initializeApp refuse d'être appelé deux fois : au second essai, on
       // réutilise l'instance déjà créée.
       if (!mods.instance) mods.instance = mods.app.initializeApp(d.firebaseConfig);

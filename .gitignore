@@ -14,6 +14,11 @@ private/
 # besoin, et les publier reviendrait à publier la liste des comptes autorisés.
 firestore.rules
 
-# Configuration Firebase : elle est servie par le NAS (munich-api), plus par ce
-# dépôt. La règle empêche qu'un ancien fichier y revienne par mégarde.
+# Configuration Firebase en clair : jamais dans ce dépôt. La règle empêche qu'un
+# ancien fichier y revienne par mégarde.
+#
+# config.enc.json, lui, doit être publié : c'est la même configuration, chiffrée
+# sous le mot de passe du compte, produite par private/build_config.mjs. C'est
+# ce qui permet une première connexion sans joindre le NAS, dont le domaine est
+# filtré par certains réseaux d'entreprise.
 firebase-config.js

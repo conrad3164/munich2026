@@ -16,7 +16,7 @@ import {
   query,
   orderBy
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
-import { mountTrip, toast } from "./render.js?v=10";
+import { mountTrip, toast } from "./render.js?v=11";
 
 // Les SDK sont chargés : on rend le formulaire utilisable et on désamorce le
 // garde-fou d'index.html.
@@ -25,14 +25,20 @@ const loginButton = document.getElementById("login-btn");
 loginButton.disabled = false;
 loginButton.textContent = "Se connecter";
 
-// La configuration Firebase n'est plus dans ce dépôt : elle est délivrée par le
-// NAS, et seulement à qui présente le mot de passe du compte. Le dépôt GitHub
+// La configuration Firebase n'est pas en clair dans ce dépôt : le dépôt GitHub
 // étant public, l'y laisser revenait à publier l'identifiant du projet et
-// l'e-mail de connexion.
+// l'e-mail de connexion. Elle y vit chiffrée (config.enc.json), sous une clé
+// dérivée du mot de passe du compte : publique, mais illisible sans lui.
 //
-// Elle est ensuite conservée en local : les visites suivantes n'ont plus besoin
-// du NAS, et le site reste consultable même si celui-ci est injoignable. Seule
-// la toute première connexion sur un appareil en dépend.
+// Le NAS (munich-api) sait aussi la délivrer et reste le recours : c'était la
+// solution d'origine, mais un réseau d'entreprise filtre couramment
+// munich-api.jeppnas.fr — domaine personnel sur IP résidentielle — et la
+// première connexion depuis le bureau devenait impossible. Le blob chiffré,
+// servi par GitHub, ne dépend d'aucun réseau particulier.
+//
+// Elle est ensuite conservée en local : les visites suivantes ne déchiffrent
+// plus rien et n'interrogent plus personne.
+const CONFIG_BLOB_URL = "./config.enc.json";
 const CONFIG_URL = "https://munich-api.jeppnas.fr/config";
 const CONFIG_KEY = "munich2026.config";
 
@@ -79,6 +85,78 @@ function startFirebase(config) {
   onAuthStateChanged(auth, handleAuthChange);
 }
 
+function fromBase64(value) {
+  return Uint8Array.from(atob(value), (c) => c.charCodeAt(0));
+}
+
+// Renvoie la configuration si le mot de passe ouvre une des entrées du blob,
+// null sinon — blob absent, illisible, ou mot de passe qui ne correspond à
+// aucune entrée. Aucune de ces situations n'est une erreur : il reste le NAS.
+async function decryptLocalConfig(password) {
+  let blob;
+  try {
+    const response = await fetch(CONFIG_BLOB_URL, { cache: "no-cache" });
+    if (!response.ok) return null;
+    blob = await response.json();
+  } catch {
+    return null;
+  }
+  if (!blob || !Array.isArray(blob.entries) || !blob.kdf) return null;
+
+  const material = await crypto.subtle.importKey(
+    "raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveKey"]
+  );
+
+  // Le blob ne nomme pas les comptes : on essaie chaque entrée. Chacune coûte
+  // une dérivation PBKDF2 complète, d'où l'intérêt d'en avoir peu.
+  for (const entry of blob.entries) {
+    try {
+      const key = await crypto.subtle.deriveKey(
+        {
+          name: "PBKDF2",
+          salt: fromBase64(entry.salt),
+          iterations: blob.kdf.iterations,
+          hash: blob.kdf.hash
+        },
+        material,
+        { name: "AES-GCM", length: 256 },
+        false,
+        ["decrypt"]
+      );
+      const clear = await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: fromBase64(entry.iv) }, key, fromBase64(entry.ct)
+      );
+      return JSON.parse(new TextDecoder().decode(clear));
+    } catch {
+      // Entrée d'un autre compte, ou mauvais mot de passe : on passe à la
+      // suivante. AES-GCM authentifie le chiffré, il n'y a pas de faux positif.
+    }
+  }
+  return null;
+}
+
+// Le blob d'abord, le NAS ensuite. Le NAS reste utile quand le blob n'a pas été
+// régénéré après un changement de mot de passe : il fait alors autorité.
+async function obtainConfig(email, password) {
+  const local = await decryptLocalConfig(password);
+  if (local) {
+    log("configuration déchiffrée depuis le dépôt");
+    return local;
+  }
+  log("blob local inutilisable : recours au NAS");
+  try {
+    return await fetchConfig(email, password);
+  } catch (e) {
+    // Le NAS est injoignable et le blob n'a rien donné. Le mot de passe est de
+    // très loin l'explication la plus probable : le dire, plutôt que d'envoyer
+    // l'utilisateur enquêter sur un NAS dont il n'a pas besoin.
+    if (e instanceof ConfigError && e.unreachable) {
+      throw new ConfigError("E-mail ou mot de passe incorrect.");
+    }
+    throw e;
+  }
+}
+
 async function fetchConfig(email, password) {
   let response;
   try {
@@ -88,11 +166,15 @@ async function fetchConfig(email, password) {
       body: JSON.stringify({ email, password })
     });
   } catch {
-    // Panne réseau, NAS éteint, box coupée : indistinguables depuis ici.
-    throw new ConfigError(
+    // Panne réseau, NAS éteint, box coupée, filtrage d'entreprise :
+    // indistinguables depuis ici. Le drapeau permet à obtainConfig() de
+    // reformuler, puisque le blob chiffré a déjà échoué juste avant.
+    const error = new ConfigError(
       "Service de configuration injoignable. Si c'est la première connexion sur "
       + "cet appareil, il faut que le NAS soit accessible."
     );
+    error.unreachable = true;
+    throw error;
   }
   if (response.status === 401) throw new ConfigError("E-mail ou mot de passe incorrect.");
   if (response.status === 429) {
@@ -119,11 +201,11 @@ $("login-form").addEventListener("submit", async (event) => {
 
   try {
     // Première connexion sur cet appareil : il faut d'abord obtenir la
-    // configuration auprès du NAS, en prouvant qu'on connaît le mot de passe.
+    // configuration, en prouvant qu'on connaît le mot de passe.
     if (!auth) {
       btn.textContent = "Configuration…";
-      log("demande de la configuration au NAS…");
-      const config = await fetchConfig(email, password);
+      log("obtention de la configuration…");
+      const config = await obtainConfig(email, password);
       localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
       startFirebase(config);
       log("configuration obtenue et mémorisée");
