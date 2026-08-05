@@ -159,6 +159,43 @@ function renderDaybar() {
   if (active) active.scrollIntoView({ inline: "center", block: "nearest" });
 }
 
+/* ------------------------------------------------------------------ photos */
+
+// Une image absente ne doit jamais casser une carte : `loading="lazy"` évite de
+// tout télécharger d'un coup, et `onerror` retire l'élément plutôt que de
+// laisser l'icône d'image brisée au milieu du programme.
+function photoElement(photo, className) {
+  const img = el("img", className);
+  img.src = photo.src;
+  img.alt = photo.alt || "";
+  img.loading = "lazy";
+  img.decoding = "async";
+  img.addEventListener("error", () => {
+    const parent = img.parentElement;
+    if (parent) parent.remove();
+  });
+  return img;
+}
+
+function renderBanner(photo) {
+  const box = el("figure", "banner");
+  box.append(photoElement(photo, "banner-img"));
+  if (photo.credit) {
+    const credit = el("figcaption", "credit");
+    if (photo.page) {
+      const link = el("a", null, photo.credit);
+      link.href = photo.page;
+      link.target = "_blank";
+      link.rel = "noopener";
+      credit.append(link);
+    } else {
+      credit.append(document.createTextNode(photo.credit));
+    }
+    box.append(credit);
+  }
+  return box;
+}
+
 function renderDay() {
   const panel = $("day-panel");
   panel.replaceChildren();
@@ -169,6 +206,11 @@ function renderDay() {
   }
 
   const day = trip.days[selectedDay];
+
+  // Bandeau photo du jour, posé avant le titre. Le crédit d'auteur est affiché
+  // sur l'image même : les licences Creative Commons l'exigent à proximité de
+  // l'œuvre, et une page de crédits séparée serait ignorée par tout le monde.
+  if (day.photo && day.photo.src) panel.append(renderBanner(day.photo));
 
   const head = el("div", "day-head");
   head.append(el("h2", null, day.label));
@@ -253,6 +295,27 @@ function buildItem(item) {
   if (item.type) titleBox.append(el("span", "badge " + item.type, TYPE_LABELS[item.type] || item.type));
   head.append(titleBox);
   card.append(head);
+
+  // Vignette de l'étape, sous le titre. Même exigence d'attribution que le
+  // bandeau, en plus discret : le crédit tient sur une ligne sous l'image.
+  if (item.photo && item.photo.src) {
+    const box = el("figure", "thumb");
+    box.append(photoElement(item.photo, "thumb-img"));
+    if (item.photo.credit) {
+      const credit = el("figcaption", "credit");
+      if (item.photo.page) {
+        const link = el("a", null, item.photo.credit);
+        link.href = item.photo.page;
+        link.target = "_blank";
+        link.rel = "noopener";
+        credit.append(link);
+      } else {
+        credit.append(document.createTextNode(item.photo.credit));
+      }
+      box.append(credit);
+    }
+    card.append(box);
+  }
 
   if (item.desc) card.append(el("p", "desc", item.desc));
 
