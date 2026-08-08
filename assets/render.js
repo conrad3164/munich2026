@@ -372,6 +372,15 @@ function buildItem(item) {
     btn.addEventListener("click", () => openTicket(item.ticketId, btn));
     actions.append(btn);
   }
+  // Les billets de train sont nominatifs : un bouton par voyageur, avec le
+  // prénom en clair. Chercher « le sien » dans une liste sans étiquette, sur un
+  // quai, avec quatre valises, ne marche pas.
+  (item.tickets || []).forEach((ticket) => {
+    const btn = el("button", "btn ticket", "🎫 " + ticket.label);
+    btn.type = "button";
+    btn.addEventListener("click", () => openTicket(ticket.id, btn));
+    actions.append(btn);
+  });
   if (actions.children.length) card.append(actions);
 
   return card;
